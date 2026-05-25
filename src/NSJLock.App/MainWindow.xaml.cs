@@ -70,7 +70,6 @@ public partial class MainWindow : Window
         if (!allowClose)
         {
             e.Cancel = true;
-            allowClose = true;
             IsEnabled = false;
 
             try
@@ -94,7 +93,8 @@ public partial class MainWindow : Window
                     MessageBoxImage.Warning);
             }
 
-            System.Windows.Application.Current.Shutdown();
+            IsEnabled = true;
+            Hide();
             return;
         }
 
