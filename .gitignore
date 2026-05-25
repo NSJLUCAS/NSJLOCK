@@ -1,0 +1,11 @@
+.dotnet/
+.worktrees/
+.dotnet-cli-home/
+.dotnet-temp/
+.tmp/
+.nuget/
+.nuget-packages/
+.superpowers/
+artifacts/
+bin/
+obj/
