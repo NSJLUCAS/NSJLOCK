@@ -1,0 +1,50 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{64A45D68-4BAF-4EFC-A2EE-824BA503AE20}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NSJLock.App", "src\NSJLock.App\NSJLock.App.csproj", "{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NSJLock.Audio", "src\NSJLock.Audio\NSJLock.Audio.csproj", "{302351F9-21AC-4D6F-B210-5FD0368EB91C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NSJLock.Config", "src\NSJLock.Config\NSJLock.Config.csproj", "{B09C6CEF-D40A-467E-8AED-BBE577D09384}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{B3342F6E-45F7-4458-B8FF-59A4CB5AB6B2}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NSJLock.Tests", "tests\NSJLock.Tests\NSJLock.Tests.csproj", "{3172D5D8-AA56-4C12-8720-3CF331D0351C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{302351F9-21AC-4D6F-B210-5FD0368EB91C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{302351F9-21AC-4D6F-B210-5FD0368EB91C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{302351F9-21AC-4D6F-B210-5FD0368EB91C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{302351F9-21AC-4D6F-B210-5FD0368EB91C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B09C6CEF-D40A-467E-8AED-BBE577D09384}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B09C6CEF-D40A-467E-8AED-BBE577D09384}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B09C6CEF-D40A-467E-8AED-BBE577D09384}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B09C6CEF-D40A-467E-8AED-BBE577D09384}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3172D5D8-AA56-4C12-8720-3CF331D0351C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3172D5D8-AA56-4C12-8720-3CF331D0351C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3172D5D8-AA56-4C12-8720-3CF331D0351C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3172D5D8-AA56-4C12-8720-3CF331D0351C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2A773111-B3AF-4437-A7A0-BC5C89D4B7B9} = {64A45D68-4BAF-4EFC-A2EE-824BA503AE20}
+		{302351F9-21AC-4D6F-B210-5FD0368EB91C} = {64A45D68-4BAF-4EFC-A2EE-824BA503AE20}
+		{B09C6CEF-D40A-467E-8AED-BBE577D09384} = {64A45D68-4BAF-4EFC-A2EE-824BA503AE20}
+		{3172D5D8-AA56-4C12-8720-3CF331D0351C} = {B3342F6E-45F7-4458-B8FF-59A4CB5AB6B2}
+	EndGlobalSection
+EndGlobal
