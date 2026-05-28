@@ -32,6 +32,12 @@ $publicDirectories = @(
     "tests"
 )
 
+$privateRootFiles = @(
+    "AGENTS.md",
+    "PROJECT.md",
+    "ROADMAP.md"
+)
+
 $excludedDirectoryNames = @(
     ".git",
     ".dotnet",
@@ -135,6 +141,10 @@ if ($PSCmdlet.ShouldProcess($destinationFullPath, "Ensure public export director
 
 if ($Clean) {
     foreach ($file in $publicFiles) {
+        Clear-PublicPath -RelativePath $file
+    }
+
+    foreach ($file in $privateRootFiles) {
         Clear-PublicPath -RelativePath $file
     }
 
