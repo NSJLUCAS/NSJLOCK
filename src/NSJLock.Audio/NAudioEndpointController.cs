@@ -80,6 +80,55 @@ public sealed class NAudioEndpointController : IAudioEndpointController, IDispos
         }
     }
 
+    public LimiterAudioSnapshot GetLimiterSnapshot(string? deviceId = null)
+    {
+        lock (syncRoot)
+        {
+            ThrowIfDisposed();
+
+            try
+            {
+                using var endpoint = endpointProvider.GetRenderEndpoint(deviceId);
+                var endpointId = endpoint.Id;
+                var deviceName = endpoint.FriendlyName;
+                var currentVolumePercent = PercentFromScalar(endpoint.MasterVolumeScalar);
+
+                try
+                {
+                    return new LimiterAudioSnapshot(
+                        deviceName,
+                        currentVolumePercent,
+                        PercentFromScalar(endpoint.MasterPeakValue),
+                        true,
+                        true,
+                        null,
+                        endpointId);
+                }
+                catch (Exception exception) when (IsExpectedEndpointException(exception))
+                {
+                    return new LimiterAudioSnapshot(
+                        deviceName,
+                        currentVolumePercent,
+                        0,
+                        true,
+                        false,
+                        exception.Message,
+                        endpointId);
+                }
+            }
+            catch (Exception exception) when (IsExpectedEndpointException(exception))
+            {
+                return new LimiterAudioSnapshot(
+                    NoDefaultDeviceText,
+                    0,
+                    0,
+                    false,
+                    false,
+                    exception.Message);
+            }
+        }
+    }
+
     public MeetingAudioDiagnosticSnapshot GetMeetingAudioDiagnostics(string? lockedDeviceId = null)
     {
         lock (syncRoot)
@@ -279,6 +328,8 @@ public sealed class NAudioEndpointController : IAudioEndpointController, IDispos
 
         float MasterVolumeScalar { get; set; }
 
+        float MasterPeakValue { get; }
+
         IReadOnlyList<AudioSessionDiagnosticInfo> GetAudioSessions();
 
         void SetZoomSessionVolume(float volumeScalar);
@@ -333,6 +384,8 @@ public sealed class NAudioEndpointController : IAudioEndpointController, IDispos
             get => device.AudioEndpointVolume.MasterVolumeLevelScalar;
             set => device.AudioEndpointVolume.MasterVolumeLevelScalar = value;
         }
+
+        public float MasterPeakValue => device.AudioMeterInformation.MasterPeakValue;
 
         public IReadOnlyList<AudioSessionDiagnosticInfo> GetAudioSessions()
         {

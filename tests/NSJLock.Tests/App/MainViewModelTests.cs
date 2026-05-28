@@ -2,6 +2,7 @@
 using NSJLock.App.ViewModels;
 using NSJLock.Audio;
 using NSJLock.Config;
+using ConfigProtectionMode = NSJLock.Config.ProtectionMode;
 
 namespace NSJLock.Tests.App;
 
@@ -29,6 +30,165 @@ public sealed class MainViewModelTests
         Assert.AreEqual("浅色", viewModel.ThemeButtonText);
         Assert.AreEqual(1, controller.SetCalls.Count);
         Assert.AreEqual(35, controller.SetCalls[0]);
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_WhenDynamicLimiterMode_LoadsModeAndDoesNotForceSafeVolume()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null))
+        {
+            LimiterSnapshot = new LimiterAudioSnapshot("Speakers", 70, 39, true, true, null)
+        };
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+
+        await viewModel.InitializeAsync();
+
+        Assert.AreEqual(ConfigProtectionMode.DynamicLimiter, viewModel.ProtectionMode);
+        Assert.AreEqual(70, viewModel.CurrentVolumePercent);
+        Assert.AreEqual(39, viewModel.CurrentPeakPercent);
+        Assert.AreEqual(0, controller.SetCalls.Count);
+        Assert.AreEqual("动态限制", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("输出峰值", viewModel.OutputPeakLabelText);
+        Assert.AreEqual("保护目标", viewModel.LockedTargetLabelText);
+        Assert.AreEqual("调节峰值上限", viewModel.AdjustLockValueText);
+        StringAssert.Contains(viewModel.SoundLockDescriptionText, "输出峰值达到 40%");
+        StringAssert.Contains(viewModel.AdjustLockDescriptionText, "触发临时压低");
+        StringAssert.Contains(viewModel.StatusText, "动态保护");
+    }
+
+    [TestMethod]
+    public async Task InitializeAsync_WhenZoomRaiseFails_DynamicLimiterStatusStillApplies()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null))
+        {
+            LimiterSnapshot = new LimiterAudioSnapshot("Speakers", 70, 90, true, true, null),
+            MeetingDiagnostics = new MeetingAudioDiagnosticSnapshot(
+                "Speakers",
+                70,
+                true,
+                true,
+                25,
+                false,
+                "Speakers",
+                70,
+                true,
+                null),
+            ZoomSetException = new InvalidOperationException("zoom write failed")
+        };
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+
+        await viewModel.InitializeAsync();
+
+        StringAssert.Contains(viewModel.StatusText, "高峰值");
+        CollectionAssert.AreEqual(new[] { 60 }, controller.SetCalls);
+        CollectionAssert.AreEqual(new[] { 100 }, controller.ZoomSetCalls);
+    }
+
+    [TestMethod]
+    public async Task SaveSettingsAsync_PreservesProtectionMode()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null));
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+        await viewModel.InitializeAsync();
+
+        viewModel.ProtectionMode = ConfigProtectionMode.FixedLock;
+        await viewModel.SaveSettingsAsync();
+
+        Assert.AreEqual(ConfigProtectionMode.FixedLock, store.SavedSettings[^1].ProtectionMode);
+    }
+
+    [TestMethod]
+    public async Task SaveSettingsAsync_PreservesDynamicLimiterOptions()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null));
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter,
+            LimiterPeakThresholdPercent: 76,
+            LimiterReleaseThresholdPercent: 61,
+            LimiterMinimumVolumePercent: 14));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+        await viewModel.InitializeAsync();
+
+        await viewModel.SaveSettingsAsync();
+
+        var saved = store.SavedSettings[^1];
+        Assert.AreEqual(ConfigProtectionMode.DynamicLimiter, saved.ProtectionMode);
+        Assert.AreEqual(76, saved.LimiterPeakThresholdPercent);
+        Assert.AreEqual(61, saved.LimiterReleaseThresholdPercent);
+        Assert.AreEqual(14, saved.LimiterMinimumVolumePercent);
+    }
+
+    [TestMethod]
+    public async Task ProtectionMode_WhenFixedLockResultHasNoPeak_ClearsCurrentPeakPercent()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null))
+        {
+            LimiterSnapshot = new LimiterAudioSnapshot("Speakers", 70, 40, true, true, null)
+        };
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+        await viewModel.InitializeAsync();
+
+        viewModel.ProtectionMode = ConfigProtectionMode.FixedLock;
+        InvokeCheckProtection(viewModel);
+
+        Assert.AreEqual(0, viewModel.CurrentPeakPercent);
+    }
+
+    [TestMethod]
+    public async Task ModeSelector_WhenSetFalse_DoesNotChangeProtectionMode()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 70, true, null));
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+        await viewModel.InitializeAsync();
+
+        viewModel.IsFixedLockSelected = false;
+
+        Assert.AreEqual(ConfigProtectionMode.DynamicLimiter, viewModel.ProtectionMode);
+
+        viewModel.IsFixedLockSelected = true;
+        viewModel.IsDynamicLimiterSelected = false;
+
+        Assert.AreEqual(ConfigProtectionMode.FixedLock, viewModel.ProtectionMode);
     }
 
     [TestMethod]
@@ -260,6 +420,10 @@ public sealed class MainViewModelTests
         Assert.AreEqual("Turn protection off", viewModel.ProtectionButtonText);
         Assert.AreEqual("Protected", viewModel.ProtectionStateText);
         Assert.AreEqual("Volume lock", viewModel.SoundLockStrengthText);
+        Assert.AreEqual("Fixed lock", viewModel.FixedLockModeText);
+        Assert.AreEqual("Dynamic limiter", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("Output peak", viewModel.OutputPeakLabelText);
+        Assert.AreEqual("Locked target", viewModel.LockedTargetLabelText);
         Assert.AreEqual("Master volume", viewModel.SystemMasterVolumeLabelText);
         StringAssert.Contains(viewModel.SoundLockDescriptionText, "System volume will be pulled back to 35%");
     }
@@ -307,6 +471,9 @@ public sealed class MainViewModelTests
 
         Assert.AreEqual("中", viewModel.SelectedLanguageLabel);
         Assert.AreEqual("关闭保护", viewModel.ProtectionButtonText);
+        Assert.AreEqual("固定锁定", viewModel.FixedLockModeText);
+        Assert.AreEqual("动态限制", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("输出峰值", viewModel.OutputPeakLabelText);
     }
 
     [TestMethod]
@@ -398,6 +565,32 @@ public sealed class MainViewModelTests
     }
 
     [TestMethod]
+    public async Task MaxVolumePercent_WhenDynamicLimiterMode_UpdatesPeakThresholdText()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 20, true, null))
+        {
+            LimiterSnapshot = new LimiterAudioSnapshot("Speakers", 20, 10, true, true, null)
+        };
+        var store = new FakeSettingsStore(new AppSettings(
+            true,
+            40,
+            AppThemeMode.Dark,
+            ProtectionMode: ConfigProtectionMode.DynamicLimiter));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+        await viewModel.InitializeAsync();
+
+        viewModel.MaxVolumePercent = 20;
+
+        Assert.AreEqual("20%", viewModel.SoundLockLimitText);
+        Assert.AreEqual("峰值上限", viewModel.SoundLockStrengthText);
+        Assert.AreEqual("调节峰值上限", viewModel.AdjustLockValueText);
+        StringAssert.Contains(viewModel.SoundLockDescriptionText, "输出峰值达到 20%");
+        StringAssert.Contains(viewModel.AdjustLockDescriptionText, "触发临时压低");
+    }
+
+    [TestMethod]
     public async Task ThemeMode_WhenChanged_SavesSelectedTheme()
     {
         var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 20, true, null));
@@ -478,9 +671,13 @@ public sealed class MainViewModelTests
     {
         public List<int> SetCalls { get; } = [];
 
+        public LimiterAudioSnapshot LimiterSnapshot { get; set; } = CreateLimiterSnapshot(snapshot);
+
         public List<string?> SetDeviceIds { get; } = [];
 
         public List<int> ZoomSetCalls { get; } = [];
+
+        public InvalidOperationException? ZoomSetException { get; set; }
 
         public IReadOnlyList<AudioOutputDevice> OutputDevices { get; set; } =
         [
@@ -510,6 +707,11 @@ public sealed class MainViewModelTests
             return snapshot;
         }
 
+        public LimiterAudioSnapshot GetLimiterSnapshot(string? deviceId = null)
+        {
+            return LimiterSnapshot;
+        }
+
         public MeetingAudioDiagnosticSnapshot GetMeetingAudioDiagnostics(string? lockedDeviceId = null)
         {
             return MeetingDiagnostics;
@@ -518,6 +720,11 @@ public sealed class MainViewModelTests
         public void SetZoomSessionVolumePercent(int volumePercent)
         {
             ZoomSetCalls.Add(volumePercent);
+            if (ZoomSetException is not null)
+            {
+                throw ZoomSetException;
+            }
+
             MeetingDiagnostics = MeetingDiagnostics with
             {
                 ZoomVolumePercent = Math.Clamp(volumePercent, 0, 100)
@@ -532,6 +739,17 @@ public sealed class MainViewModelTests
         {
             SetCalls.Add(volumePercent);
             SetDeviceIds.Add(deviceId);
+        }
+
+        private static LimiterAudioSnapshot CreateLimiterSnapshot(AudioEndpointSnapshot snapshot)
+        {
+            return new LimiterAudioSnapshot(
+                snapshot.DeviceName,
+                snapshot.CurrentVolumePercent,
+                0,
+                snapshot.HasDefaultDevice,
+                snapshot.HasDefaultDevice,
+                snapshot.ErrorMessage);
         }
     }
 

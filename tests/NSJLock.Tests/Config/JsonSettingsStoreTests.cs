@@ -68,6 +68,118 @@ public sealed class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_WhenProtectionModeIsMissing_UsesFixedLockAndDefaultLimiterSettings()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"isProtectionEnabled":true,"maxVolumePercent":35}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(ProtectionMode.FixedLock, settings.ProtectionMode);
+        Assert.AreEqual(80, settings.LimiterPeakThresholdPercent);
+        Assert.AreEqual(65, settings.LimiterReleaseThresholdPercent);
+        Assert.AreEqual(10, settings.LimiterMinimumVolumePercent);
+    }
+
+    [TestMethod]
+    public async Task SaveAndLoadAsync_RoundTripsDynamicLimiterSettings()
+    {
+        var directory = CreateTempDirectory();
+        var store = new JsonSettingsStore(directory);
+        var original = new AppSettings(
+            false,
+            55,
+            AppThemeMode.Light,
+            AppLanguage.English,
+            LockedDeviceId: "device-1",
+            ProtectionMode: ProtectionMode.DynamicLimiter,
+            LimiterPeakThresholdPercent: 75,
+            LimiterReleaseThresholdPercent: 60,
+            LimiterMinimumVolumePercent: 15);
+
+        await store.SaveAsync(original, CancellationToken.None);
+        var loaded = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(ProtectionMode.DynamicLimiter, loaded.ProtectionMode);
+        Assert.AreEqual(75, loaded.LimiterPeakThresholdPercent);
+        Assert.AreEqual(60, loaded.LimiterReleaseThresholdPercent);
+        Assert.AreEqual(15, loaded.LimiterMinimumVolumePercent);
+        Assert.AreEqual("device-1", loaded.LockedDeviceId);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenLimiterValuesAreOutOfRange_NormalizesThem()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"protectionMode":"dynamicLimiter","limiterPeakThresholdPercent":150,"limiterReleaseThresholdPercent":120,"limiterMinimumVolumePercent":-10}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(ProtectionMode.DynamicLimiter, settings.ProtectionMode);
+        Assert.AreEqual(100, settings.LimiterPeakThresholdPercent);
+        Assert.AreEqual(100, settings.LimiterReleaseThresholdPercent);
+        Assert.AreEqual(0, settings.LimiterMinimumVolumePercent);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenReleaseThresholdExceedsPeakThreshold_ClampsReleaseToPeak()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"limiterPeakThresholdPercent":70,"limiterReleaseThresholdPercent":90}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(70, settings.LimiterPeakThresholdPercent);
+        Assert.AreEqual(70, settings.LimiterReleaseThresholdPercent);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenProtectionModeIsInvalid_UsesFixedLock()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"protectionMode":"banana","maxVolumePercent":35}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(ProtectionMode.FixedLock, settings.ProtectionMode);
+        Assert.AreEqual(35, settings.MaxVolumePercent);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenProtectionModeIsNotString_UsesFixedLockAndKeepsOtherFields()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"isProtectionEnabled":false,"maxVolumePercent":35,"protectionMode":123,"limiterPeakThresholdPercent":75}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.IsFalse(settings.IsProtectionEnabled);
+        Assert.AreEqual(35, settings.MaxVolumePercent);
+        Assert.AreEqual(ProtectionMode.FixedLock, settings.ProtectionMode);
+        Assert.AreEqual(75, settings.LimiterPeakThresholdPercent);
+    }
+
+    [TestMethod]
     public async Task LoadAsync_WhenLanguageIsMissing_UsesChinese()
     {
         var directory = CreateTempDirectory();
@@ -195,6 +307,38 @@ public sealed class JsonSettingsStoreTests
     }
 
     [TestMethod]
+    public async Task LoadAsync_WhenJsonRootIsNotObject_ReturnsDefaults()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(Path.Combine(directory, "settings.json"), "[]");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.IsTrue(settings.IsProtectionEnabled);
+        Assert.AreEqual(40, settings.MaxVolumePercent);
+        Assert.AreEqual(AppThemeMode.Dark, settings.ThemeMode);
+        Assert.AreEqual(ProtectionMode.FixedLock, settings.ProtectionMode);
+    }
+
+    [TestMethod]
+    public async Task LoadAsync_WhenProtectionModeIsNumericString_UsesFixedLockAndKeepsOtherFields()
+    {
+        var directory = CreateTempDirectory();
+        Directory.CreateDirectory(directory);
+        await File.WriteAllTextAsync(
+            Path.Combine(directory, "settings.json"),
+            """{"maxVolumePercent":35,"protectionMode":"1"}""");
+        var store = new JsonSettingsStore(directory);
+
+        var settings = await store.LoadAsync(CancellationToken.None);
+
+        Assert.AreEqual(35, settings.MaxVolumePercent);
+        Assert.AreEqual(ProtectionMode.FixedLock, settings.ProtectionMode);
+    }
+
+    [TestMethod]
     public async Task SaveAsync_WhenCanceledBeforeWrite_DoesNotOverwriteExistingFile()
     {
         var directory = CreateTempDirectory();
@@ -225,7 +369,10 @@ public sealed class JsonSettingsStoreTests
         StringAssert.Contains(json, "\"maxVolumePercent\": 100");
         StringAssert.Contains(json, "\"themeMode\": \"light\"");
         StringAssert.Contains(json, "\"language\": \"english\"");
-        StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("limiter", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
+        StringAssert.Contains(json, "\"protectionMode\": \"fixedLock\"");
+        StringAssert.Contains(json, "\"limiterPeakThresholdPercent\": 80");
+        StringAssert.Contains(json, "\"limiterReleaseThresholdPercent\": 65");
+        StringAssert.Contains(json, "\"limiterMinimumVolumePercent\": 10");
         StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("meeting", System.Text.RegularExpressions.RegexOptions.IgnoreCase));
         StringAssert.DoesNotMatch(json, new System.Text.RegularExpressions.Regex("IsProtectionEnabled"));
     }

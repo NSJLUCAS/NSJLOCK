@@ -58,6 +58,120 @@ public sealed class NAudioEndpointControllerTests
     }
 
     [TestMethod]
+    public void GetLimiterSnapshot_ReturnsMasterVolumeAndPeakPercent()
+    {
+        var provider = new FakeEndpointProvider
+        {
+            Endpoint = new FakeEndpoint("Speakers", 0.42f)
+            {
+                MasterPeakValue = 0.75f
+            }
+        };
+        var controller = new NAudioEndpointController(provider);
+
+        var snapshot = controller.GetLimiterSnapshot();
+
+        Assert.AreEqual("Speakers", snapshot.DeviceName);
+        Assert.AreEqual("default-device", snapshot.DeviceId);
+        Assert.AreEqual(42, snapshot.CurrentVolumePercent);
+        Assert.AreEqual(75, snapshot.PeakPercent);
+        Assert.IsTrue(snapshot.HasDefaultDevice);
+        Assert.IsTrue(snapshot.IsPeakAvailable);
+        Assert.IsNull(snapshot.ErrorMessage);
+    }
+
+    [TestMethod]
+    public void GetLimiterSnapshot_WhenPeakThrowsComException_ReturnsPeakUnavailableSnapshot()
+    {
+        var provider = new FakeEndpointProvider
+        {
+            Endpoint = new FakeEndpoint("Speakers", 0.42f)
+            {
+                MasterPeakValueException = new COMException("peak meter unavailable")
+            }
+        };
+        var controller = new NAudioEndpointController(provider);
+
+        var snapshot = controller.GetLimiterSnapshot();
+
+        Assert.AreEqual("Speakers", snapshot.DeviceName);
+        Assert.AreEqual("default-device", snapshot.DeviceId);
+        Assert.AreEqual(42, snapshot.CurrentVolumePercent);
+        Assert.AreEqual(0, snapshot.PeakPercent);
+        Assert.IsTrue(snapshot.HasDefaultDevice);
+        Assert.IsFalse(snapshot.IsPeakAvailable);
+        Assert.AreEqual("peak meter unavailable", snapshot.ErrorMessage);
+    }
+
+    [TestMethod]
+    public void GetLimiterSnapshot_WhenPeakThrowsInvalidOperationException_ReturnsPeakUnavailableSnapshot()
+    {
+        var provider = new FakeEndpointProvider
+        {
+            Endpoint = new FakeEndpoint("Speakers", 0.42f)
+            {
+                MasterPeakValueException = new InvalidOperationException("peak read failed")
+            }
+        };
+        var controller = new NAudioEndpointController(provider);
+
+        var snapshot = controller.GetLimiterSnapshot();
+
+        Assert.AreEqual("Speakers", snapshot.DeviceName);
+        Assert.AreEqual("default-device", snapshot.DeviceId);
+        Assert.AreEqual(42, snapshot.CurrentVolumePercent);
+        Assert.AreEqual(0, snapshot.PeakPercent);
+        Assert.IsTrue(snapshot.HasDefaultDevice);
+        Assert.IsFalse(snapshot.IsPeakAvailable);
+        Assert.AreEqual("peak read failed", snapshot.ErrorMessage);
+    }
+
+    [TestMethod]
+    public void GetLimiterSnapshot_RoundsAndClampsPeakPercent()
+    {
+        var highController = new NAudioEndpointController(new FakeEndpointProvider
+        {
+            Endpoint = new FakeEndpoint("Speakers", 0.5f)
+            {
+                MasterPeakValue = 1.2f
+            }
+        });
+        var lowController = new NAudioEndpointController(new FakeEndpointProvider
+        {
+            Endpoint = new FakeEndpoint("Speakers", 0.5f)
+            {
+                MasterPeakValue = -0.2f
+            }
+        });
+
+        var highSnapshot = highController.GetLimiterSnapshot();
+        var lowSnapshot = lowController.GetLimiterSnapshot();
+
+        Assert.AreEqual(100, highSnapshot.PeakPercent);
+        Assert.AreEqual(0, lowSnapshot.PeakPercent);
+    }
+
+    [TestMethod]
+    public void GetLimiterSnapshot_WhenProviderThrowsComException_ReturnsUnavailableSnapshot()
+    {
+        var provider = new FakeEndpointProvider
+        {
+            GetEndpointException = new COMException("meter unavailable")
+        };
+        var controller = new NAudioEndpointController(provider);
+
+        var snapshot = controller.GetLimiterSnapshot();
+
+        Assert.AreEqual("未检测到默认输出设备", snapshot.DeviceName);
+        Assert.AreEqual(0, snapshot.CurrentVolumePercent);
+        Assert.AreEqual(0, snapshot.PeakPercent);
+        Assert.IsFalse(snapshot.HasDefaultDevice);
+        Assert.IsFalse(snapshot.IsPeakAvailable);
+        Assert.IsNull(snapshot.DeviceId);
+        Assert.AreEqual("meter unavailable", snapshot.ErrorMessage);
+    }
+
+    [TestMethod]
     public void ReleaseAudioSampling_DoesNothingForExactVolumeLock()
     {
         var controller = new NAudioEndpointController(new FakeEndpointProvider());
@@ -258,6 +372,25 @@ public sealed class NAudioEndpointControllerTests
         public string FriendlyName { get; } = friendlyName;
 
         public float MasterVolumeScalar { get; set; } = masterVolumeScalar;
+
+        public float MasterPeakValue
+        {
+            get
+            {
+                if (MasterPeakValueException is not null)
+                {
+                    throw MasterPeakValueException;
+                }
+
+                return masterPeakValue;
+            }
+
+            init => masterPeakValue = value;
+        }
+
+        public Exception? MasterPeakValueException { get; init; }
+
+        private readonly float masterPeakValue;
 
         public IReadOnlyList<AudioSessionDiagnosticInfo> AudioSessions { get; set; } = [];
 

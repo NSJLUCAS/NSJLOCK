@@ -7,4 +7,7 @@ public sealed record ProtectionTickResult(
     bool WasLimited,
     DateTimeOffset? LastLimitedAt,
     ProtectionTickStatus StatusCode,
-    string? StatusDetail);
+    string? StatusDetail,
+    ProtectionMode ProtectionMode = ProtectionMode.FixedLock,
+    int? CurrentPeakPercent = null,
+    int? UserTargetVolumePercent = null);

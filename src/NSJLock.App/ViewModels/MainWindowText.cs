@@ -1,5 +1,6 @@
 using NSJLock.Audio;
 using NSJLock.Config;
+using ConfigProtectionMode = NSJLock.Config.ProtectionMode;
 
 namespace NSJLock.App.ViewModels;
 
@@ -47,13 +48,25 @@ internal static class MainWindowText
         return language == AppLanguage.English ? "Sound lock" : "声音锁";
     }
 
-    public static string SoundLockStrength(AppLanguage language)
+    public static string SoundLockStrength(AppLanguage language, ConfigProtectionMode mode)
     {
+        if (mode == ConfigProtectionMode.DynamicLimiter)
+        {
+            return language == AppLanguage.English ? "Peak limit" : "峰值上限";
+        }
+
         return language == AppLanguage.English ? "Volume lock" : "锁定音量";
     }
 
-    public static string SoundLockDescription(AppLanguage language, int percent)
+    public static string SoundLockDescription(AppLanguage language, int percent, ConfigProtectionMode mode)
     {
+        if (mode == ConfigProtectionMode.DynamicLimiter)
+        {
+            return language == AppLanguage.English
+                ? $"You can adjust system volume. NSJ Lock temporarily lowers it when output peak reaches {percent}%."
+                : $"你可以继续调系统音量。输出峰值达到 {percent}% 时，NSJ Lock 才会临时压低。";
+        }
+
         return language == AppLanguage.English
             ? $"System volume will be pulled back to {percent}%, whether it goes above or below the target."
             : $"系统音量会被拉回 {percent}%，高了会降下去，低了会拉上来。";
@@ -69,9 +82,29 @@ internal static class MainWindowText
         return language == AppLanguage.English ? "Master volume" : "系统主音量";
     }
 
-    public static string LockedTarget(AppLanguage language)
+    public static string LockedTarget(AppLanguage language, ConfigProtectionMode mode)
     {
+        if (mode == ConfigProtectionMode.DynamicLimiter)
+        {
+            return language == AppLanguage.English ? "Protection target" : "保护目标";
+        }
+
         return language == AppLanguage.English ? "Locked target" : "锁定目标";
+    }
+
+    public static string FixedLockMode(AppLanguage language)
+    {
+        return language == AppLanguage.English ? "Fixed lock" : "固定锁定";
+    }
+
+    public static string DynamicLimiterMode(AppLanguage language)
+    {
+        return language == AppLanguage.English ? "Dynamic limiter" : "动态限制";
+    }
+
+    public static string OutputPeak(AppLanguage language)
+    {
+        return language == AppLanguage.English ? "Output peak" : "输出峰值";
     }
 
     public static string Target(AppLanguage language)
@@ -99,13 +132,25 @@ internal static class MainWindowText
         return language == AppLanguage.English ? "Follow system default output" : "跟随系统默认输出";
     }
 
-    public static string AdjustLockValue(AppLanguage language)
+    public static string AdjustLockValue(AppLanguage language, ConfigProtectionMode mode)
     {
+        if (mode == ConfigProtectionMode.DynamicLimiter)
+        {
+            return language == AppLanguage.English ? "Adjust peak limit" : "调节峰值上限";
+        }
+
         return language == AppLanguage.English ? "Adjust lock value" : "调节锁定值";
     }
 
-    public static string AdjustLockDescription(AppLanguage language)
+    public static string AdjustLockDescription(AppLanguage language, ConfigProtectionMode mode)
     {
+        if (mode == ConfigProtectionMode.DynamicLimiter)
+        {
+            return language == AppLanguage.English
+                ? "Drag the slider to set the output peak that triggers temporary lowering."
+                : "拖动滑杆设置触发临时压低的输出峰值。";
+        }
+
         return language == AppLanguage.English
             ? "Drag the slider to set the system volume target."
             : "拖动滑杆设置系统主音量会被拉回的位置。";
@@ -187,6 +232,11 @@ internal static class MainWindowText
             ProtectionTickStatus.AudioReadFailed => AudioReadFailed(language, result.StatusDetail ?? string.Empty),
             ProtectionTickStatus.NoDefaultDevice => language == AppLanguage.English ? "No default output device detected" : "未检测到默认输出设备",
             ProtectionTickStatus.ProtectionPaused => language == AppLanguage.English ? "Protection is paused" : "保护已暂停",
+            ProtectionTickStatus.LevelReadFailed => language == AppLanguage.English ? "Failed to read output level" : "无法读取输出峰值",
+            ProtectionTickStatus.DynamicMonitoring => language == AppLanguage.English ? "Dynamic protection active" : "动态保护中",
+            ProtectionTickStatus.DynamicLimited => language == AppLanguage.English ? "High peak limited" : "检测到高峰值，已临时压低",
+            ProtectionTickStatus.DynamicRestoring => language == AppLanguage.English ? "Restoring user volume" : "正在恢复到用户音量",
+            ProtectionTickStatus.DynamicRestored => language == AppLanguage.English ? "User volume restored" : "已恢复到用户音量",
             ProtectionTickStatus.BaselineUpdated => language == AppLanguage.English ? "Baseline volume updated" : "已更新基准音量",
             ProtectionTickStatus.Protecting => language == AppLanguage.English ? "Protected" : "保护中",
             ProtectionTickStatus.VolumeWriteFailed => language == AppLanguage.English ? $"Failed to set volume: {result.StatusDetail}" : $"设置音量失败：{result.StatusDetail}",

@@ -6,6 +6,8 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using NSJLock.Audio;
 using NSJLock.Config;
+using AudioProtectionMode = NSJLock.Audio.ProtectionMode;
+using ConfigProtectionMode = NSJLock.Config.ProtectionMode;
 
 namespace NSJLock.App.ViewModels;
 
@@ -28,10 +30,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     private MeetingAudioDiagnosticSnapshot? lastMeetingDiagnostics;
     private string deviceName = "正在检测...";
     private int currentVolumePercent;
+    private int currentPeakPercent;
     private int maxVolumePercent = AppSettings.Defaults.MaxVolumePercent;
     private bool isProtectionEnabled = AppSettings.Defaults.IsProtectionEnabled;
     private AppThemeMode themeMode = AppSettings.Defaults.ThemeMode;
     private string? lockedDeviceId = AppSettings.Defaults.LockedDeviceId;
+    private ConfigProtectionMode protectionMode = AppSettings.Defaults.ProtectionMode;
+    private int limiterPeakThresholdPercent = AppSettings.Defaults.LimiterPeakThresholdPercent;
+    private int limiterReleaseThresholdPercent = AppSettings.Defaults.LimiterReleaseThresholdPercent;
+    private int limiterMinimumVolumePercent = AppSettings.Defaults.LimiterMinimumVolumePercent;
     private OutputDeviceOption? selectedOutputDeviceOption;
     private string statusText = "正在启动保护...";
     private string meetingAudioStatusText = "会议诊断：等待检测 Zoom 音频会话";
@@ -72,6 +79,12 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         private set => SetField(ref currentVolumePercent, value);
     }
 
+    public int CurrentPeakPercent
+    {
+        get => currentPeakPercent;
+        private set => SetField(ref currentPeakPercent, value);
+    }
+
     public int MaxVolumePercent
     {
         get => maxVolumePercent;
@@ -90,9 +103,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string SoundLockLimitText => $"{MaxVolumePercent}%";
 
-    public string SoundLockStrengthText => MainWindowText.SoundLockStrength(Language);
+    public string SoundLockStrengthText => MainWindowText.SoundLockStrength(Language, ProtectionMode);
 
-    public string SoundLockDescriptionText => MainWindowText.SoundLockDescription(Language, MaxVolumePercent);
+    public string SoundLockDescriptionText => MainWindowText.SoundLockDescription(Language, MaxVolumePercent, ProtectionMode);
 
     public bool IsProtectionEnabled
     {
@@ -111,6 +124,50 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
     public string ProtectionButtonText => MainWindowText.ProtectionButton(Language, IsProtectionEnabled);
 
     public string ProtectionStateText => MainWindowText.ProtectionState(Language, IsProtectionEnabled);
+
+    public ConfigProtectionMode ProtectionMode
+    {
+        get => protectionMode;
+        set
+        {
+            if (SetField(ref protectionMode, value))
+            {
+                OnPropertyChanged(nameof(IsFixedLockSelected));
+                OnPropertyChanged(nameof(IsDynamicLimiterSelected));
+                OnPropertyChanged(nameof(SoundLockStrengthText));
+                OnPropertyChanged(nameof(SoundLockDescriptionText));
+                OnPropertyChanged(nameof(LockedTargetLabelText));
+                OnPropertyChanged(nameof(AdjustLockValueText));
+                OnPropertyChanged(nameof(AdjustLockDescriptionText));
+                QueueSettingsSave();
+                QueueProtectionCheck();
+            }
+        }
+    }
+
+    public bool IsFixedLockSelected
+    {
+        get => ProtectionMode == ConfigProtectionMode.FixedLock;
+        set
+        {
+            if (value)
+            {
+                ProtectionMode = ConfigProtectionMode.FixedLock;
+            }
+        }
+    }
+
+    public bool IsDynamicLimiterSelected
+    {
+        get => ProtectionMode == ConfigProtectionMode.DynamicLimiter;
+        set
+        {
+            if (value)
+            {
+                ProtectionMode = ConfigProtectionMode.DynamicLimiter;
+            }
+        }
+    }
 
     public AppThemeMode ThemeMode
     {
@@ -160,7 +217,13 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string SystemMasterVolumeLabelText => MainWindowText.SystemMasterVolume(Language);
 
-    public string LockedTargetLabelText => MainWindowText.LockedTarget(Language);
+    public string LockedTargetLabelText => MainWindowText.LockedTarget(Language, ProtectionMode);
+
+    public string FixedLockModeText => MainWindowText.FixedLockMode(Language);
+
+    public string DynamicLimiterModeText => MainWindowText.DynamicLimiterMode(Language);
+
+    public string OutputPeakLabelText => MainWindowText.OutputPeak(Language);
 
     public string TargetLabelText => MainWindowText.Target(Language);
 
@@ -170,9 +233,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string FollowSystemDefaultOutputText => MainWindowText.FollowSystemDefaultOutput(Language);
 
-    public string AdjustLockValueText => MainWindowText.AdjustLockValue(Language);
+    public string AdjustLockValueText => MainWindowText.AdjustLockValue(Language, ProtectionMode);
 
-    public string AdjustLockDescriptionText => MainWindowText.AdjustLockDescription(Language);
+    public string AdjustLockDescriptionText => MainWindowText.AdjustLockDescription(Language, ProtectionMode);
 
     public string QuieterText => MainWindowText.Quieter(Language);
 
@@ -290,6 +353,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         themeMode = settings.ThemeMode;
         language = settings.Language;
         lockedDeviceId = settings.LockedDeviceId;
+        protectionMode = settings.ProtectionMode;
+        limiterPeakThresholdPercent = settings.LimiterPeakThresholdPercent;
+        limiterReleaseThresholdPercent = settings.LimiterReleaseThresholdPercent;
+        limiterMinimumVolumePercent = settings.LimiterMinimumVolumePercent;
 
         RefreshOutputDevices();
         OnPropertyChanged(nameof(MaxVolumePercent));
@@ -299,6 +366,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(IsProtectionEnabled));
         OnPropertyChanged(nameof(ProtectionButtonText));
         OnPropertyChanged(nameof(ProtectionStateText));
+        OnPropertyChanged(nameof(ProtectionMode));
+        OnPropertyChanged(nameof(IsFixedLockSelected));
+        OnPropertyChanged(nameof(IsDynamicLimiterSelected));
         OnPropertyChanged(nameof(ThemeMode));
         OnPropertyChanged(nameof(ThemeButtonText));
         OnLanguageChanged(reattachStatus: false);
@@ -337,6 +407,9 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(CurrentVolumeLabelText));
         OnPropertyChanged(nameof(SystemMasterVolumeLabelText));
         OnPropertyChanged(nameof(LockedTargetLabelText));
+        OnPropertyChanged(nameof(FixedLockModeText));
+        OnPropertyChanged(nameof(DynamicLimiterModeText));
+        OnPropertyChanged(nameof(OutputPeakLabelText));
         OnPropertyChanged(nameof(TargetLabelText));
         OnPropertyChanged(nameof(SystemOutputLabelText));
         OnPropertyChanged(nameof(ZoomLabelText));
@@ -413,7 +486,11 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 MaxVolumePercent,
                 ThemeMode,
                 Language,
-                LockedDeviceId: LockedDeviceId);
+                LockedDeviceId: LockedDeviceId,
+                ProtectionMode: ProtectionMode,
+                LimiterPeakThresholdPercent: limiterPeakThresholdPercent,
+                LimiterReleaseThresholdPercent: limiterReleaseThresholdPercent,
+                LimiterMinimumVolumePercent: limiterMinimumVolumePercent);
             await settingsStore.SaveAsync(settings, cancellationToken);
             return true;
         }
@@ -526,6 +603,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             var isProtectionEnabledSnapshot = IsProtectionEnabled;
             var maxVolumePercentSnapshot = MaxVolumePercent;
             var lockedDeviceIdSnapshot = LockedDeviceId;
+            var protectionModeSnapshot = ProtectionMode;
             var now = DateTimeOffset.Now;
 
             await Task.Yield();
@@ -534,7 +612,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                     isProtectionEnabledSnapshot,
                     maxVolumePercentSnapshot,
                     now,
-                    lockedDeviceIdSnapshot),
+                    lockedDeviceIdSnapshot,
+                    protectionModeSnapshot),
                 queuedCheckCancellation.Token);
 
             if (!isDisposed && !queuedCheckCancellation.IsCancellationRequested)
@@ -647,12 +726,18 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         var isProtectionEnabledSnapshot = IsProtectionEnabled;
         var maxVolumePercentSnapshot = MaxVolumePercent;
         var lockedDeviceIdSnapshot = LockedDeviceId;
+        var protectionModeSnapshot = ProtectionMode;
         var now = DateTimeOffset.Now;
 
         try
         {
             var result = await Task.Run(
-                () => CheckProtectionAndMeetingDiagnosticsCore(isProtectionEnabledSnapshot, maxVolumePercentSnapshot, now, lockedDeviceIdSnapshot),
+                () => CheckProtectionAndMeetingDiagnosticsCore(
+                    isProtectionEnabledSnapshot,
+                    maxVolumePercentSnapshot,
+                    now,
+                    lockedDeviceIdSnapshot,
+                    protectionModeSnapshot),
                 cancellationTokenSource.Token);
 
             if (!isDisposed)
@@ -688,7 +773,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             IsProtectionEnabled,
             MaxVolumePercent,
             DateTimeOffset.Now,
-            LockedDeviceId);
+            LockedDeviceId,
+            ProtectionMode);
 
         ApplyProtectionResult(result.ProtectionResult);
         ApplyMeetingAudioDiagnostics(result.MeetingDiagnostics);
@@ -698,7 +784,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         bool isProtectionEnabled,
         int maxVolumePercent,
         DateTimeOffset now,
-        string? lockedDeviceIdSnapshot)
+        string? lockedDeviceIdSnapshot,
+        ConfigProtectionMode protectionModeSnapshot)
     {
         lock (protectionCheckLock)
         {
@@ -706,12 +793,23 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
                 isProtectionEnabled,
                 maxVolumePercent,
                 now,
-                lockedDeviceIdSnapshot);
+                lockedDeviceIdSnapshot,
+                MapProtectionMode(protectionModeSnapshot));
             var meetingDiagnostics = volumeProtectionService.GetMeetingAudioDiagnostics(lockedDeviceIdSnapshot);
-            if (ShouldRaiseZoomVolume(meetingDiagnostics))
+            try
             {
-                volumeProtectionService.SetZoomSessionVolumePercent(100);
-                meetingDiagnostics = volumeProtectionService.GetMeetingAudioDiagnostics(lockedDeviceIdSnapshot);
+                if (ShouldRaiseZoomVolume(meetingDiagnostics))
+                {
+                    volumeProtectionService.SetZoomSessionVolumePercent(100);
+                    meetingDiagnostics = volumeProtectionService.GetMeetingAudioDiagnostics(lockedDeviceIdSnapshot);
+                }
+            }
+            catch (InvalidOperationException exception)
+            {
+                meetingDiagnostics = meetingDiagnostics with
+                {
+                    ErrorMessage = exception.Message
+                };
             }
 
             return (protectionResult, meetingDiagnostics);
@@ -723,6 +821,7 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         lastProtectionResult = result;
         DeviceName = result.DeviceName;
         CurrentVolumePercent = result.CurrentVolumePercent;
+        CurrentPeakPercent = result.CurrentPeakPercent ?? 0;
         StatusText = MainWindowText.ProtectionStatus(Language, result);
     }
 
@@ -742,6 +841,15 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
             && diagnostics.HasZoomSession
             && diagnostics.IsZoomMuted != true
             && diagnostics.ZoomVolumePercent is < 100;
+    }
+
+    private static AudioProtectionMode MapProtectionMode(ConfigProtectionMode protectionMode)
+    {
+        return protectionMode switch
+        {
+            ConfigProtectionMode.DynamicLimiter => AudioProtectionMode.DynamicLimiter,
+            _ => AudioProtectionMode.FixedLock
+        };
     }
 
     private static string FormatProtectionStatus(ProtectionTickResult result)

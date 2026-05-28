@@ -34,6 +34,8 @@ public sealed class VolumeLockServiceTests
     {
         public AudioEndpointSnapshot Snapshot { get; set; } = snapshot;
 
+        public LimiterAudioSnapshot LimiterSnapshot { get; set; } = CreateLimiterSnapshot(snapshot);
+
         public List<int> SetCalls { get; } = [];
 
         public IReadOnlyList<AudioOutputDevice> GetActiveOutputDevices()
@@ -44,6 +46,11 @@ public sealed class VolumeLockServiceTests
         public AudioEndpointSnapshot GetBasicSnapshot(string? deviceId = null)
         {
             return Snapshot;
+        }
+
+        public LimiterAudioSnapshot GetLimiterSnapshot(string? deviceId = null)
+        {
+            return LimiterSnapshot;
         }
 
         public MeetingAudioDiagnosticSnapshot GetMeetingAudioDiagnostics(string? lockedDeviceId = null)
@@ -73,6 +80,17 @@ public sealed class VolumeLockServiceTests
         public void SetMasterVolumePercent(int volumePercent, string? deviceId = null)
         {
             SetCalls.Add(volumePercent);
+        }
+
+        private static LimiterAudioSnapshot CreateLimiterSnapshot(AudioEndpointSnapshot snapshot)
+        {
+            return new LimiterAudioSnapshot(
+                snapshot.DeviceName,
+                snapshot.CurrentVolumePercent,
+                0,
+                snapshot.HasDefaultDevice,
+                snapshot.HasDefaultDevice,
+                snapshot.ErrorMessage);
         }
     }
 }

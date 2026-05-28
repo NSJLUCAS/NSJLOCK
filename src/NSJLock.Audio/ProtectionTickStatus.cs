@@ -8,5 +8,10 @@ public enum ProtectionTickStatus
     BaselineUpdated,
     Protecting,
     VolumeWriteFailed,
-    VolumeAdjusted
+    VolumeAdjusted,
+    LevelReadFailed,
+    DynamicMonitoring,
+    DynamicLimited,
+    DynamicRestoring,
+    DynamicRestored
 }

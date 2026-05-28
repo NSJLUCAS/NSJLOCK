@@ -36,12 +36,11 @@ public sealed class JsonSettingsStore : ISettingsStore
         try
         {
             await using var stream = File.OpenRead(_settingsPath);
-            var settings = await JsonSerializer.DeserializeAsync<SettingsFile>(
+            using var document = await JsonDocument.ParseAsync(
                 stream,
-                JsonOptions,
-                cancellationToken);
+                cancellationToken: cancellationToken);
 
-            return settings?.ToAppSettings() ?? AppSettings.Defaults;
+            return SettingsFile.FromJsonElement(document.RootElement).ToAppSettings();
         }
         catch (JsonException)
         {
@@ -112,15 +111,44 @@ public sealed class JsonSettingsStore : ISettingsStore
 
     private sealed class SettingsFile
     {
-        public bool? IsProtectionEnabled { get; init; }
+        public bool? IsProtectionEnabled { get; private init; }
 
-        public int? MaxVolumePercent { get; init; }
+        public int? MaxVolumePercent { get; private init; }
 
-        public string? ThemeMode { get; init; }
+        public string? ThemeMode { get; private init; }
 
-        public string? Language { get; init; }
+        public string? Language { get; private init; }
 
-        public string? LockedDeviceId { get; init; }
+        public string? LockedDeviceId { get; private init; }
+
+        public string? ProtectionMode { get; private init; }
+
+        public int? LimiterPeakThresholdPercent { get; private init; }
+
+        public int? LimiterReleaseThresholdPercent { get; private init; }
+
+        public int? LimiterMinimumVolumePercent { get; private init; }
+
+        public static SettingsFile FromJsonElement(JsonElement element)
+        {
+            if (element.ValueKind != JsonValueKind.Object)
+            {
+                return new SettingsFile();
+            }
+
+            return new SettingsFile
+            {
+                IsProtectionEnabled = TryGetBoolean(element, "isProtectionEnabled"),
+                MaxVolumePercent = TryGetInt32(element, "maxVolumePercent"),
+                ThemeMode = TryGetString(element, "themeMode"),
+                Language = TryGetString(element, "language"),
+                LockedDeviceId = TryGetString(element, "lockedDeviceId"),
+                ProtectionMode = TryGetString(element, "protectionMode"),
+                LimiterPeakThresholdPercent = TryGetInt32(element, "limiterPeakThresholdPercent"),
+                LimiterReleaseThresholdPercent = TryGetInt32(element, "limiterReleaseThresholdPercent"),
+                LimiterMinimumVolumePercent = TryGetInt32(element, "limiterMinimumVolumePercent")
+            };
+        }
 
         public AppSettings ToAppSettings()
         {
@@ -129,7 +157,48 @@ public sealed class JsonSettingsStore : ISettingsStore
                 MaxVolumePercent ?? AppSettings.Defaults.MaxVolumePercent,
                 ParseThemeMode(ThemeMode),
                 ParseLanguage(Language),
-                LockedDeviceId).Normalize();
+                LockedDeviceId,
+                ParseProtectionMode(ProtectionMode),
+                LimiterPeakThresholdPercent ?? AppSettings.Defaults.LimiterPeakThresholdPercent,
+                LimiterReleaseThresholdPercent ?? AppSettings.Defaults.LimiterReleaseThresholdPercent,
+                LimiterMinimumVolumePercent ?? AppSettings.Defaults.LimiterMinimumVolumePercent).Normalize();
+        }
+
+        private static bool? TryGetBoolean(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property))
+            {
+                return null;
+            }
+
+            return property.ValueKind switch
+            {
+                JsonValueKind.True => true,
+                JsonValueKind.False => false,
+                _ => null
+            };
+        }
+
+        private static int? TryGetInt32(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property) ||
+                property.ValueKind != JsonValueKind.Number)
+            {
+                return null;
+            }
+
+            return property.TryGetInt32(out var value) ? value : null;
+        }
+
+        private static string? TryGetString(JsonElement element, string propertyName)
+        {
+            if (!element.TryGetProperty(propertyName, out var property) ||
+                property.ValueKind != JsonValueKind.String)
+            {
+                return null;
+            }
+
+            return property.GetString();
         }
 
         private static AppThemeMode ParseThemeMode(string? value)
@@ -154,6 +223,20 @@ public sealed class JsonSettingsStore : ISettingsStore
             return Enum.TryParse<AppLanguage>(value, ignoreCase: true, out var language)
                 ? language
                 : AppSettings.Defaults.Language;
+        }
+
+        private static ProtectionMode ParseProtectionMode(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return AppSettings.Defaults.ProtectionMode;
+            }
+
+            return !int.TryParse(value, out _) &&
+                   Enum.TryParse<ProtectionMode>(value, ignoreCase: true, out var protectionMode) &&
+                   Enum.IsDefined(protectionMode)
+                ? protectionMode
+                : AppSettings.Defaults.ProtectionMode;
         }
     }
 }

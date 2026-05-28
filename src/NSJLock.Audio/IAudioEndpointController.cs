@@ -6,6 +6,8 @@ public interface IAudioEndpointController
 
     AudioEndpointSnapshot GetBasicSnapshot(string? deviceId = null);
 
+    LimiterAudioSnapshot GetLimiterSnapshot(string? deviceId = null);
+
     MeetingAudioDiagnosticSnapshot GetMeetingAudioDiagnostics(string? lockedDeviceId = null);
 
     void SetZoomSessionVolumePercent(int volumePercent);
