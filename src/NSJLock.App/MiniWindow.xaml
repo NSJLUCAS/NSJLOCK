@@ -1,0 +1,97 @@
+<Window x:Class="NSJLock.App.MiniWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="NSJ Lock"
+        Width="250"
+        Height="136"
+        MinWidth="230"
+        MinHeight="128"
+        MaxWidth="320"
+        MaxHeight="176"
+        ResizeMode="CanResize"
+        WindowStartupLocation="CenterOwner"
+        Topmost="True"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        UseLayoutRounding="True"
+        SnapsToDevicePixels="True">
+    <Border Margin="6"
+            Background="{DynamicResource PanelBackgroundBrush}"
+            BorderBrush="{DynamicResource HairlineBrush}"
+            BorderThickness="1"
+            CornerRadius="8"
+            Padding="8,7,8,8">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="NSJ Lock"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+
+                <Button Grid.Column="1"
+                        Content="□"
+                        ToolTip="{Binding ReturnToMainWindowText}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Height="24"
+                        MinWidth="30"
+                        Padding="6,0"
+                        Click="HandleReturnToMainWindowClick" />
+            </Grid>
+
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        Margin="0,6,0,4">
+                <RadioButton Content="{Binding FixedLockModeText}"
+                             GroupName="MiniProtectionMode"
+                             Foreground="{DynamicResource SecondaryTextBrush}"
+                             FontSize="10"
+                             IsChecked="{Binding IsFixedLockSelected, Mode=TwoWay}"
+                             VerticalAlignment="Center"
+                             Margin="0,0,12,0" />
+                <RadioButton Content="{Binding DynamicLimiterModeText}"
+                             GroupName="MiniProtectionMode"
+                             Foreground="{DynamicResource SecondaryTextBrush}"
+                             FontSize="10"
+                             IsChecked="{Binding IsDynamicLimiterSelected, Mode=TwoWay}"
+                             VerticalAlignment="Center" />
+            </StackPanel>
+
+            <Grid Grid.Row="2"
+                  MinHeight="26">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="{Binding SoundLockLimitText}"
+                           Foreground="{DynamicResource AccentBrush}"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+
+                <Slider Grid.Column="1"
+                        Style="{StaticResource {x:Type Slider}}"
+                        Minimum="10"
+                        Maximum="100"
+                        TickFrequency="5"
+                        IsSnapToTickEnabled="True"
+                        Value="{Binding MaxVolumePercent, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                        Height="24"
+                        MaxWidth="135"
+                        HorizontalAlignment="Stretch" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

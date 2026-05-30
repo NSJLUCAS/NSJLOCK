@@ -211,6 +211,10 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
 
     public string WindowSubtitleText => MainWindowText.Subtitle(Language);
 
+    public string OpenMiniWindowText => MainWindowText.OpenMiniWindow(Language);
+
+    public string ReturnToMainWindowText => MainWindowText.ReturnToMainWindow(Language);
+
     public string SoundLockTitleText => MainWindowText.SoundLockTitle(Language);
 
     public string CurrentVolumeLabelText => MainWindowText.CurrentVolume(Language);
@@ -395,6 +399,8 @@ public sealed class MainViewModel : INotifyPropertyChanged, IDisposable
         OnPropertyChanged(nameof(IsEnglishSelected));
         OnPropertyChanged(nameof(SelectedLanguageLabel));
         OnPropertyChanged(nameof(WindowSubtitleText));
+        OnPropertyChanged(nameof(OpenMiniWindowText));
+        OnPropertyChanged(nameof(ReturnToMainWindowText));
         OnPropertyChanged(nameof(ThemeButtonText));
         OnPropertyChanged(nameof(ThemeSystemText));
         OnPropertyChanged(nameof(ThemeLightText));

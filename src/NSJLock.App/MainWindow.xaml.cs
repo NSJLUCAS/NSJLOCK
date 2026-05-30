@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Media;
+using Forms = System.Windows.Forms;
 using Microsoft.Win32;
 using NSJLock.Config;
 using NSJLock.App.ViewModels;
@@ -48,6 +49,7 @@ public partial class MainWindow : Window
         "#DCE5EF");
 
     private bool allowClose;
+    private MiniWindow? miniWindow;
 
     public MainWindow(MainViewModel viewModel)
     {
@@ -56,6 +58,7 @@ public partial class MainWindow : Window
         viewModel.PropertyChanged += HandleViewModelPropertyChanged;
         SystemEvents.UserPreferenceChanged += HandleUserPreferenceChanged;
         ApplyTheme(viewModel.ThemeMode);
+        SourceInitialized += HandleSourceInitialized;
     }
 
     public MainViewModel ViewModel => (MainViewModel)DataContext;
@@ -63,6 +66,23 @@ public partial class MainWindow : Window
     public void AllowClose()
     {
         allowClose = true;
+        miniWindow?.AllowClose();
+    }
+
+    public void ShowMainWindowFromMini()
+    {
+        if (miniWindow is not null)
+        {
+            miniWindow.Hide();
+        }
+
+        if (WindowState == WindowState.Minimized)
+        {
+            WindowState = WindowState.Normal;
+        }
+
+        Show();
+        Activate();
     }
 
     protected override async void OnClosing(System.ComponentModel.CancelEventArgs e)
@@ -103,9 +123,55 @@ public partial class MainWindow : Window
 
     protected override void OnClosed(EventArgs e)
     {
+        if (miniWindow is not null)
+        {
+            miniWindow.AllowClose();
+            miniWindow.Close();
+            miniWindow = null;
+        }
+
+        SourceInitialized -= HandleSourceInitialized;
         ViewModel.PropertyChanged -= HandleViewModelPropertyChanged;
         SystemEvents.UserPreferenceChanged -= HandleUserPreferenceChanged;
         base.OnClosed(e);
+    }
+
+    private void ShowMiniWindow()
+    {
+        try
+        {
+            miniWindow ??= new MiniWindow(ViewModel, ShowMainWindowFromMini);
+            PositionMiniWindowNearMainWindow();
+
+            miniWindow.Show();
+            miniWindow.Activate();
+            Hide();
+        }
+        catch (Exception exception)
+        {
+            Show();
+            System.Windows.MessageBox.Show(
+                $"无法打开迷你窗口：{exception.Message}",
+                "NSJ Lock",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void HandleOpenMiniWindowClick(object sender, RoutedEventArgs e)
+    {
+        ShowMiniWindow();
+    }
+
+    private void PositionMiniWindowNearMainWindow()
+    {
+        if (miniWindow is null || miniWindow.IsVisible)
+        {
+            return;
+        }
+
+        miniWindow.Left = Left + Math.Max(0, ActualWidth - miniWindow.Width);
+        miniWindow.Top = Top + 24;
     }
 
     private void HandleViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -122,6 +188,23 @@ public partial class MainWindow : Window
         {
             Dispatcher.BeginInvoke(() => ApplyTheme(ViewModel.ThemeMode));
         }
+    }
+
+    private void HandleSourceInitialized(object? sender, EventArgs e)
+    {
+        FitToCurrentScreen();
+    }
+
+    private void FitToCurrentScreen()
+    {
+        var workingArea = Forms.Screen.FromHandle(new System.Windows.Interop.WindowInteropHelper(this).Handle).WorkingArea;
+        var dpi = VisualTreeHelper.GetDpi(this);
+        var availableHeight = workingArea.Height / dpi.DpiScaleY;
+
+        var targetHeight = Math.Min(720, Math.Max(560, availableHeight - 24));
+        MinHeight = targetHeight;
+        MaxHeight = targetHeight;
+        Height = targetHeight;
     }
 
     private static void ApplyTheme(AppThemeMode themeMode)

@@ -60,13 +60,7 @@ public sealed class TrayIconService : IDisposable
             return;
         }
 
-        if (mainWindow.WindowState == WindowState.Minimized)
-        {
-            mainWindow.WindowState = WindowState.Normal;
-        }
-
-        mainWindow.Show();
-        mainWindow.Activate();
+        mainWindow.ShowMainWindowFromMini();
     }
 
     public async void ExitApplication()

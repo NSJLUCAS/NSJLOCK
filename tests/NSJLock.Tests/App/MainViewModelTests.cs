@@ -54,7 +54,7 @@ public sealed class MainViewModelTests
         Assert.AreEqual(70, viewModel.CurrentVolumePercent);
         Assert.AreEqual(39, viewModel.CurrentPeakPercent);
         Assert.AreEqual(0, controller.SetCalls.Count);
-        Assert.AreEqual("动态限制", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("动态调整", viewModel.DynamicLimiterModeText);
         Assert.AreEqual("输出峰值", viewModel.OutputPeakLabelText);
         Assert.AreEqual("保护目标", viewModel.LockedTargetLabelText);
         Assert.AreEqual("调节峰值上限", viewModel.AdjustLockValueText);
@@ -421,7 +421,7 @@ public sealed class MainViewModelTests
         Assert.AreEqual("Protected", viewModel.ProtectionStateText);
         Assert.AreEqual("Volume lock", viewModel.SoundLockStrengthText);
         Assert.AreEqual("Fixed lock", viewModel.FixedLockModeText);
-        Assert.AreEqual("Dynamic limiter", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("Dynamic adjust", viewModel.DynamicLimiterModeText);
         Assert.AreEqual("Output peak", viewModel.OutputPeakLabelText);
         Assert.AreEqual("Locked target", viewModel.LockedTargetLabelText);
         Assert.AreEqual("Master volume", viewModel.SystemMasterVolumeLabelText);
@@ -472,8 +472,28 @@ public sealed class MainViewModelTests
         Assert.AreEqual("中", viewModel.SelectedLanguageLabel);
         Assert.AreEqual("关闭保护", viewModel.ProtectionButtonText);
         Assert.AreEqual("固定锁定", viewModel.FixedLockModeText);
-        Assert.AreEqual("动态限制", viewModel.DynamicLimiterModeText);
+        Assert.AreEqual("动态调整", viewModel.DynamicLimiterModeText);
         Assert.AreEqual("输出峰值", viewModel.OutputPeakLabelText);
+    }
+
+    [TestMethod]
+    public async Task Language_WhenChanged_UpdatesMiniWindowText()
+    {
+        var controller = new FakeAudioEndpointController(new AudioEndpointSnapshot("Speakers", 40, true, null));
+        var store = new FakeSettingsStore(new AppSettings(true, 40, AppThemeMode.Dark, AppLanguage.Chinese));
+        using var viewModel = new MainViewModel(
+            new VolumeProtectionService(controller),
+            store);
+
+        await viewModel.InitializeAsync();
+
+        Assert.AreEqual("迷你窗口", viewModel.OpenMiniWindowText);
+        Assert.AreEqual("回到主窗口", viewModel.ReturnToMainWindowText);
+
+        viewModel.Language = AppLanguage.English;
+
+        Assert.AreEqual("Mini window", viewModel.OpenMiniWindowText);
+        Assert.AreEqual("Full window", viewModel.ReturnToMainWindowText);
     }
 
     [TestMethod]

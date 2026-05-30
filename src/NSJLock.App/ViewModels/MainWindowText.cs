@@ -16,6 +16,16 @@ internal static class MainWindowText
         return language == AppLanguage.English ? "System sound protection" : "系统声音保护";
     }
 
+    public static string OpenMiniWindow(AppLanguage language)
+    {
+        return language == AppLanguage.English ? "Mini window" : "迷你窗口";
+    }
+
+    public static string ReturnToMainWindow(AppLanguage language)
+    {
+        return language == AppLanguage.English ? "Full window" : "回到主窗口";
+    }
+
     public static string Theme(AppLanguage language, AppThemeMode themeMode)
     {
         return (language, themeMode) switch
@@ -99,7 +109,7 @@ internal static class MainWindowText
 
     public static string DynamicLimiterMode(AppLanguage language)
     {
-        return language == AppLanguage.English ? "Dynamic limiter" : "动态限制";
+        return language == AppLanguage.English ? "Dynamic adjust" : "动态调整";
     }
 
     public static string OutputPeak(AppLanguage language)
